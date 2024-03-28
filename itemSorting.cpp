@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <chrono>
+#include <vector>
+#include <numeric>
 
 using namespace std;
 using namespace std::chrono;
@@ -24,7 +26,7 @@ public:
         srand(time(0));
         for (int i = 0; i < size; ++i)
         {
-            arr[i] = static_cast<T>(rand());
+            arr[i] = static_cast<T>(-5000 + rand() % 10000);
         }
     }
 
@@ -32,10 +34,11 @@ public:
     {
         for (int i = 0; i < size; ++i)
         {
-            cout << arr[i] << " ";
+            cout << "| " << arr[i] << " ";
         }
         cout << endl
-             << "---------------------------------------------------------------------------------------------------" << endl;
+             << "---------------------------------------------------------------------------------------------------------------------------------------------------------------"
+             << endl;
     }
 
     void readArrayFromFile(const string &filename)
@@ -89,8 +92,8 @@ public:
             }
             arr[j + 1] = key;
 
-            cout << "Step " << i << ": ";
-            printArray();
+            // cout << "Step " << i << ": ";
+            // printArray();
         }
     }
 
@@ -123,26 +126,25 @@ public:
             swap(arr[0], arr[i]);
             heapify(i, 0);
 
-            cout << "Step " << size - i << ": ";
-            printArray();
+            // cout << "Step " << size - i << ": ";
+            // printArray();
         }
     }
 
     void shellSort(int gap)
     {
         int iteration = 0;
-        for (int gap = size / 2; gap > 0; gap /= 2)
+        for (int g = size / 2; g > 0; g /= 2)
         {
-            for (int i = gap; i < size; ++i)
+            for (int i = g; i < size; ++i)
             {
                 T temp = arr[i];
                 int j;
-                for (j = i; j >= gap && arr[j - gap] > temp; j -= gap)
-                    arr[j] = arr[j - gap];
+                for (j = i; j >= g && arr[j - g] > temp; j -= g)
+                    arr[j] = arr[j - g];
                 arr[j] = temp;
-
-                cout << "Iteration: " << iteration << ": ";
-                printArray();
+                // cout << "Iteration: " << iteration << ": ";
+                // printArray();
             }
             iteration++;
         }
@@ -152,7 +154,10 @@ public:
     {
         if (left < right)
         {
-            int pivotIndex = partition(left, right);
+            int pivotIndex = rand() % (right - left + 1) + left;
+            swap(arr[pivotIndex], arr[right]);
+
+            pivotIndex = partition(left, right);
             quickSort(left, pivotIndex - 1);
             quickSort(pivotIndex + 1, right);
         }
@@ -160,10 +165,9 @@ public:
 
     int partition(int left, int right)
     {
-        int iteration = 0;
         T pivot = arr[right];
         int i = left - 1;
-        for (int j = left; j <= right - 1; ++j)
+        for (int j = left; j <= right - 1; j++)
         {
             if (arr[j] < pivot)
             {
@@ -173,46 +177,87 @@ public:
         }
         swap(arr[i + 1], arr[right]);
 
-        cout << "Iteration: " << iteration << " Step: " << right - left + 1 << ": ";
-        printArray();
+        // cout << "Step: " << right - left + 1 << ": ";
+        // printArray();
 
         return i + 1;
     }
 
-    void runTests(int choice)
+    long long measureTime(void (SortTester::*sortMethod)(), int repetitions)
     {
-        cout << "Initial array: ";
-        printArray();
-
         auto start = high_resolution_clock::now();
-
-        switch (choice)
+        for (int i = 0; i < repetitions; i++)
         {
-        case 1:
-            insertionSort();
-            break;
-        case 2:
-            heapSort();
-            break;
-        case 3:
-            shellSort(size / 2);
-            break;
-        case 4:
-            quickSort(0, size - 1);
-            break;
-        default:
-            cout << "Invalid choice" << endl;
-            return;
+            (this->*sortMethod)();
         }
-
         auto stop = high_resolution_clock::now();
         auto duration = duration_cast<milliseconds>(stop - start);
-        cout << "Time taken: " << duration.count() << " milliseconds" << endl;
+        return duration.count();
+    }
 
-        if (!isSorted())
-            cout << "Array is not sorted!" << endl;
-        else
-            cout << "Array is sorted." << endl;
+    long long measureTime(void (SortTester::*sortMethod)(int, int), int left, int right, int repetitions)
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < repetitions; i++)
+        {
+            (this->*sortMethod)(left, right);
+        }
+        auto stop = high_resolution_clock::now();
+        auto duration = duration_cast<milliseconds>(stop - start);
+        return duration.count();
+    }
+
+    long long measureTime(void (SortTester::*sortMethod)(int), int gap, int repetitions)
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < repetitions; i++)
+        {
+            (this->*sortMethod)(gap);
+        }
+        auto stop = high_resolution_clock::now();
+        auto duration = duration_cast<milliseconds>(stop - start);
+        return duration.count();
+    }
+
+    int getSize() const { return size; }
+
+    void runTests(int choice, int repetitions)
+    {
+        vector<int> arraySizes = {20000, 40000, 50000, 80000, 100000, 200000, 300000};
+        vector<long long> averageTimes;
+
+        for (int size : arraySizes)
+        {
+            cout << "Sorting array of size: " << size << endl;
+            generateRandomArray(size);
+            long long totalTime = 0;
+            switch (choice)
+            {
+            case 1:
+                totalTime = measureTime(&SortTester::insertionSort, repetitions);
+                break;
+            case 2:
+                totalTime = measureTime(&SortTester::heapSort, repetitions);
+                break;
+            case 3:
+                totalTime = measureTime(&SortTester::shellSort, sizeof(arr) / sizeof(arr[0]), repetitions);
+                break;
+            case 4:
+                totalTime = measureTime(&SortTester::quickSort, 0, size - 1, repetitions);
+                break;
+            default:
+                cout << "Invalid choice" << endl;
+                return;
+            }
+            cout << "Average time taken for size " << size << ": " << totalTime << " milliseconds" << endl;
+            averageTimes.push_back(totalTime / repetitions);
+        }
+
+        cout << "Average times for different array sizes:" << endl;
+        for (size_t i = 0; i < arraySizes.size(); ++i)
+        {
+            cout << "Size: " << arraySizes[i] << " | Average Time: " << averageTimes[i] << " milliseconds" << endl;
+        }
     }
 
     ~SortTester()
@@ -225,8 +270,8 @@ int main()
 {
     int choice;
     int size;
+    int repetitions;
     SortTester<int> intTester;
-    SortTester<float> floatTester;
 
     do
     {
@@ -245,9 +290,48 @@ int main()
 
     if (choice2 == 1)
     {
-        cout << "Enter the size of the array: ";
-        cin >> size;
-        intTester.generateRandomArray(size);
+        int choice3;
+        cout << "Enter 1 to sort the array or 2 to run tests: ";
+        cin >> choice3;
+        if (choice3 == 1)
+        {
+            cout << "Enter the size of the array: ";
+            cin >> size;
+            intTester.generateRandomArray(size);
+            cout << "Unsorted array:" << endl;
+            intTester.printArray();
+            switch (choice)
+            {
+            case 1:
+                intTester.insertionSort();
+                break;
+            case 2:
+                intTester.heapSort();
+                break;
+            case 3:
+                intTester.shellSort(size / 2);
+                break;
+            case 4:
+                intTester.quickSort(0, size - 1);
+                break;
+            default:
+                cout << "Invalid choice" << endl;
+                return 1;
+            }
+            cout << "Sorted array:" << endl;
+            intTester.printArray();
+        }
+        else if (choice3 == 2)
+        {
+            cout << "Enter the number of repetitions for each array size: ";
+            cin >> repetitions;
+            intTester.runTests(choice, repetitions);
+        }
+        else
+        {
+            cout << "Invalid choice" << endl;
+            return 1;
+        }
     }
     else if (choice2 == 2)
     {
@@ -255,14 +339,34 @@ int main()
         cout << "Enter the filename: ";
         cin >> filename;
         intTester.readArrayFromFile(filename);
+        cout << "Unsorted array from file:" << endl;
+        intTester.printArray();
+        switch (choice)
+        {
+        case 1:
+            intTester.insertionSort();
+            break;
+        case 2:
+            intTester.heapSort();
+            break;
+        case 3:
+            intTester.shellSort(intTester.getSize() / 2);
+            break;
+        case 4:
+            intTester.quickSort(0, intTester.getSize() - 1);
+            break;
+        default:
+            cout << "Invalid choice" << endl;
+            return 1;
+        }
+        cout << "Sorted array from file:" << endl;
+        intTester.printArray();
     }
     else
     {
         cout << "Invalid choice" << endl;
         return 1;
     }
-
-    intTester.runTests(choice);
 
     return 0;
 }
